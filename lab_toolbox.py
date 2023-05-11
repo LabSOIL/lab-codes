@@ -5,15 +5,18 @@ during the processes in the SOIL lab.
 '''
 from scipy.interpolate import splrep, splev
 import numpy as np
+import pandas as pd
 from constants import constants
 import plotly.graph_objs as go
-from typing import Dict
+from typing import Dict, Tuple, List, Any
 from plotly.subplots import make_subplots
 from scipy.integrate import simpson
-from numpy import trapz
+import os
+import csv
 
 
 class Measurement:
+    ''' A class to hold a single measurement and its associated data  '''
     def __init__(self, name, raw_data):
 
         self.name = name
@@ -21,6 +24,7 @@ class Measurement:
 
         self._baseline_selected_points = []
         self._integral_selected_points = []
+        self._integration_properties = []
 
     def add_baseline_point(self, x_coord):
         self._baseline_selected_points.append(x_coord)
@@ -72,8 +76,8 @@ class Measurement:
         try:
             tck = splrep(self.x, self.y, t=self.baseline_selected_points, k=3)
             return splev(self.x, tck)
-        except ValueError:
-            print(self.x)
+        except ValueError as e:
+            print("Error defining spline", e)
 
     @property
     def filtered_baseline(self):
@@ -84,10 +88,114 @@ class Measurement:
                   "returning raw data")
             return self.y
 
-    def calculate_integrals(self, samples):
-        # Calculate the area under the curve
-        # start and end are the x values
-        # Use the filtered baseline
+    @property
+    def integral_peaks(self):
+        ''' Returns a list of x values for the peaks '''
+        peaks = []
+        for prop in self._integration_properties:
+            if prop['peak_x'] is not None and not np.isnan(prop['peak_x']):
+                peaks.append(prop['peak_x'])
+
+        return peaks
+
+    def save_plot(self, output_dir):
+        ''' Outputs a plot of the measurement to the specified path '''
+
+        fig = go.Figure(
+            go.Scatter(
+                x=self.x/60,
+                y=self.filtered_baseline*10**6,
+                mode='lines',
+                name=self.name,
+            )
+        )
+
+        fig.update_layout(
+            title=self.name,
+            xaxis_title="Time (min)",
+            yaxis_title="Current (μA)",
+            font=dict(
+                family="Courier New, monospace",
+                size=18,
+                color="RebeccaPurple"
+            )
+        )
+        # Remove the / from the filename if exists
+        filename = os.path.join(output_dir, f"{self.name.split('/')[0]}.png")
+
+        fig.write_image(filename, width=1980, height=1080)
+        print(f"Saved plot to {filename}")
+
+    def find_peak(
+            self,
+            x_start,
+            x_end
+    ) -> Tuple[float, float | int]:
+        ''' Finds the peak value between the x_start and x_end values
+
+        Uses the filtered baseline data to find the peak.
+
+        Parameters
+        ----------
+        x_start : float
+            The x value to start looking for the peak
+        x_end : float
+            The x value to stop looking for the peak
+
+        Returns
+        -------
+        Tuple[float | int, float]
+            The x and y values of the peak, the data type of the x value
+            depends on the data type of the x values in the measurement
+        '''
+
+        # Get the filtered baseline data between the start and end points
+        y = self.filtered_baseline[
+            np.where((self.x >= x_start) & (self.x <= x_end))
+        ]
+
+        # Get the x values between the start and end points
+        x = self.x[
+            np.where((self.x >= x_start) & (self.x <= x_end))
+        ]
+
+        # Find the peak absolute value from the filtered baseline
+        peak_y = np.max(np.abs(y))
+
+        # Get the x value of the peak
+        peak_x = x[np.where(np.abs(y) == peak_y)][0]
+
+        return peak_x, peak_y
+
+    def calculate_integrals(
+        self,
+        samples,
+        integration_method: str = 'simpson',
+    ) -> List[Dict[str, int | float]]:
+        ''' Calculates the area under the curve between the selected points
+
+        Uses the filtered baseline for data and the selected points to
+        calculate the area under the curve between the points.
+
+        The selected points reside in the integral_selected_points list
+        that have been added in this Measurement class.
+
+        Parameters
+        ----------
+        samples : int
+            The number of samples to use when calculating the integral, this
+            should be input by the user as they will know how many samples
+            they had taken during the measurement
+        integration_method : str, optional
+            The method to use when calculating the integral, by default
+            'simpson', to use the trapezoidal rule use 'trapz'
+
+        Returns
+        -------
+        List[Tuple[float, float, float]]
+            A list of tuples containing the start and end points of the
+            integral and the area under the curve between those points
+        '''
 
         # Get list of tuples of start and end points
         ranges_all = [
@@ -97,7 +205,7 @@ class Measurement:
         # Remove any ranges that are not complete (groups of 2)
         ranges = [x for x in ranges_all if len(x) == 2]
 
-        integral_pairs = []
+        self._integration_properties = []
         for start, end in ranges:
             # Get Y values between start and end
             y_values = self.filtered_baseline[
@@ -110,15 +218,37 @@ class Measurement:
             ]
 
             # Calculate the area
-            # area = np.trapz(y_values, x_values)
-            area = simpson(y_values, x_values)
-            integral_pairs.append((start, end, area))
+            if integration_method == 'trapz':
+                area = np.trapz(y_values, x_values)
+            elif integration_method == 'simpson':
+                area = simpson(y_values, x_values)
+            else:
+                raise ValueError(
+                    f"Integration method '{integration_method}' not "
+                    "supported, use 'trapz' or 'simpson'"
+                )
+
+            peak_x, peak_y = self.find_peak(start, end)
+
+            self._integration_properties.append({
+                "start": start,
+                "end": end,
+                "area": area,
+                "peak_x": peak_x,
+                "peak_y": peak_y
+            })
 
         # Buffer output list with NaNs to match the number of samples
-        while len(integral_pairs) < samples:
-            integral_pairs.append((np.nan, np.nan, np.nan))
+        while len(self._integration_properties) < samples:
+            self._integration_properties.append({
+                "start": np.nan,
+                "end": np.nan,
+                "area": np.nan,
+                "peak_x": np.nan,
+                "peak_y": np.nan
+            })
 
-        return integral_pairs
+        return self._integration_properties
 
 
 def filter_baseline_interactively(
@@ -263,14 +393,15 @@ def filter_baseline_interactively(
     fig.update_layout(
         height=2000, width=900,
         margin=dict(l=1, r=1, t=25, b=1),
-        )
+    )
 
     return fig
 
 
 def integrate_peaks_interactively(
     measurements: Dict[str, Measurement],
-    samples: int
+    samples: int,
+    integration_method: str = 'simpson',
 ) -> go.Figure:
     ''' Generates a subplot given the dictionary of measurements
 
@@ -280,15 +411,16 @@ def integrate_peaks_interactively(
     def cb_update_integral_filter_plot(trace, points, selector):
         # Must iterate through each plot in the subplot as everytime on_click
         # is actuated, it returns a list
+
         for i, subplot in enumerate(fig.data):
             if (
                 i == points.trace_index
                 and len(points.point_inds)
             ):  # Make sure we're working on the plot with changes
-
                 point_color = list(subplot.marker.color)
                 point_size = list(subplot.marker.size)
                 measurement = measurements[points.trace_name]
+
                 for j in points.point_inds:
                     # Point is given in a list, but we only click one at a
                     # time, unwrap it
@@ -308,7 +440,26 @@ def integrate_peaks_interactively(
                         point_color[j] = '#2F4F4F'
                         point_size[j] = 20
                         measurement.add_integral_point(clicked_point)
-                        print(f"{measurement.name}: {measurement.calculate_integrals(samples)}")
+                        measurement.calculate_integrals(
+                            samples, integration_method
+                        )
+
+                    for i, point in enumerate(point_color):
+                        # Reset integral max points before setting new ones
+                        if point == constants.INTEGRAL_PEAK_COLOUR:
+                            point_color[i] = constants.DEFAULT_POINT_COLOUR
+                            point_size[i] = constants.DEFAULT_POINT_SIZE
+
+                    for point in measurement.integral_peaks:
+                        val = np.where(subplot.x == point)[0]
+                        if val and len(val) and not np.isnan(val):
+                            peak_index = val.item()
+                            point_color[peak_index] = (
+                                constants.INTEGRAL_PEAK_COLOUR
+                            )
+                            point_size[peak_index] = (
+                                constants.INTEGRAL_PEAK_SIZE
+                            )
 
                     with fig.batch_update():
                         # Update the color and size of un/clicked point
@@ -363,3 +514,56 @@ def integrate_peaks_interactively(
         )
 
     return fig
+
+
+def output_data(
+    measurements: Dict[str, Measurement],
+    sample_count: int,
+    output_dir: str,
+) -> None:
+    # Create output dir
+    output_dir = os.path.join(os.getcwd(), output_dir)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Form dataframe from baseline data
+    baseline_data: Dict[str, Any] = {"Time/s": []}
+    raw_data: Dict[str, Any] = {"Time/s": []}
+    for name, data in measurements.items():
+        # Create baseline data structure
+        baseline_data[name] = data.filtered_baseline
+        baseline_data["Time/s"] = data.x  # Any of the x will do, use the last
+
+        # Create raw data structure
+        raw_data[name] = data.y
+        raw_data["Time/s"] = data.x
+
+        # Save plots
+        data.save_plot(output_dir)
+
+    # Save baseline filtered data
+    df = pd.DataFrame.from_dict(baseline_data)
+    df.set_index('Time/s', inplace=True, drop=True)
+    df.to_csv(os.path.join(output_dir,
+                           constants.FILENAME_BASELINE_SUBTRACTED_DATA))
+    # Do the same for the raw data
+    df = pd.DataFrame.from_dict(baseline_data)
+    df.set_index('Time/s', inplace=True, drop=True)
+    df.to_csv(os.path.join(output_dir,
+                           constants.FILENAME_RAW_DATA))
+
+    header = ['measurement']
+    for i in range(sample_count):
+        for name in ["start", "end", "area", "peak_time", "peak_value"]:
+            header.append(f"sample{i+1}_{name}")
+
+    with open(os.path.join(os.getcwd(), 'Output_301_b.csv'), 'w') as csvfile:
+        outputwriter = csv.writer(csvfile, delimiter=',')
+        outputwriter.writerow(header)
+        for name, measurement in measurements.items():
+            row = []
+            row.append(name)
+            for i, sample in enumerate(measurement._integration_properties):
+                row += [sample['start'], sample['end'], sample['area'],
+                        sample['peak_x'], sample['peak_y']]
+            outputwriter.writerow(row)
