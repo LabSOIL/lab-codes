@@ -3,7 +3,6 @@
 This file contains the functions that support data transformations
 during the processes in the SOIL lab.
 '''
-from scipy.interpolate import splrep, splev
 import numpy as np
 import pandas as pd
 from constants import constants
@@ -13,6 +12,7 @@ from plotly.subplots import make_subplots
 from scipy.integrate import simpson
 import os
 import csv
+import pybaselines
 
 
 class Measurement:
@@ -22,9 +22,13 @@ class Measurement:
         self.name = name
         self.raw_data = raw_data
 
-        self._baseline_selected_points = []
+        self._baseline_selected_points = [self.x[0], self.x[-1]]
+        self._spline = np.array([])
+        self.update_spline(interpolation_method='linear')
+
         self._integral_selected_points = []
         self._integration_properties = []
+
 
     def add_baseline_point(self, x_coord):
         self._baseline_selected_points.append(x_coord)
@@ -72,10 +76,34 @@ class Measurement:
 
     @property
     def spline(self):
+        return self._spline
+
+    def update_spline(self, interpolation_method):
         # Use the sorted baseline points here
         try:
-            tck = splrep(self.x, self.y, t=self.baseline_selected_points, k=3)
-            return splev(self.x, tck)
+            fitter = pybaselines.Baseline(self.x, check_finite=False)
+            # For all of the select points in self.base_selected_points
+            # which is a subset of self.x, create an array of the
+            # associated y value in self.y and update the spline with those
+            # points
+            pairs = np.array([
+                (x, self.y[np.where(self.x == x)][0])
+                for x in self.baseline_selected_points
+            ])
+
+            if len(self.baseline_selected_points) < 4:
+                # If less than two points have been chosen, fit with polyline
+                self._spline = fitter.interp_pts(
+                    self.x.reshape(-1, 1),
+                    baseline_points=pairs,
+                    interp_method='linear')[0]
+            else:
+                self._spline = fitter.interp_pts(
+                    self.x.reshape(-1, 1),
+                    baseline_points=pairs,
+                    interp_method=interpolation_method
+                )[0]
+
         except ValueError as e:
             print("Error defining spline", e)
 
@@ -252,7 +280,8 @@ class Measurement:
 
 
 def filter_baseline_interactively(
-    measurements: Dict[str, Measurement]
+    measurements: Dict[str, Measurement],
+    interpolation_method: str = 'linear',
 ) -> go.Figure:
     ''' Generates a subplot given the dictionary of measurements
 
@@ -279,13 +308,26 @@ def filter_baseline_interactively(
 
                     # If a user clicks on the same point twice
                     if clicked_point in measurement.baseline_selected_points:
-                        point_color[j] = constants.DEFAULT_POINT_COLOUR
-                        point_size[j] = constants.DEFAULT_POINT_SIZE
                         measurement.remove_baseline_point(clicked_point)
                     else:
-                        point_color[j] = '#2F4F4F'
-                        point_size[j] = 20
                         measurement.add_baseline_point(clicked_point)
+
+                    measurement.update_spline(interpolation_method)
+
+                    # Go through all the selected points and update their
+                    # color and size. If not in list, return them to default
+                    # Get the mask of the selected points against the x array
+                    mask = np.isin(
+                        measurement.x,
+                        measurement.baseline_selected_points
+                    )
+                    for k, point in enumerate(measurement.x):
+                        if mask[k]:  # If true, point is selected
+                            point_color[k] = constants.SELECTED_POINT_COLOUR
+                            point_size[k] = constants.SELECTED_POINT_SIZE
+                        else:  # If false, point is not selected
+                            point_color[k] = constants.DEFAULT_POINT_COLOUR
+                            point_size[k] = constants.DEFAULT_POINT_SIZE
 
                     with fig.batch_update():
                         # Update the color and size of un/clicked point
@@ -372,9 +414,6 @@ def filter_baseline_interactively(
             col=1
         )
 
-    DEFAULT_POINT_SIZE = 0
-    DEFAULT_POINT_COLOUR = '#a3a7e4'
-
     for subfig in fig.data:
         # Callback for on click
         subfig.on_click(cb_update_baseline_filter_plot)
@@ -382,12 +421,15 @@ def filter_baseline_interactively(
         # Change colours of selected points (only on the raw data)
         if 'spline' not in subfig.name:
             # Define the colour and size of points on first load
-            subfig.marker.color = [DEFAULT_POINT_COLOUR] * len(subfig.y)
-            subfig.marker.size = [DEFAULT_POINT_SIZE] * len(subfig.y)
+            subfig.marker.color = ([constants.DEFAULT_POINT_COLOUR]
+                                   * len(subfig.y))
+            subfig.marker.size = ([constants.DEFAULT_POINT_SIZE]
+                                  * len(subfig.y))
 
             # Change scatter marker border colour/width (to make it visible)
             subfig.marker.line.color = 'DarkSlateGrey'
             subfig.marker.line.width = 0
+
 
     # Format and show fig
     fig.update_layout(
@@ -401,7 +443,7 @@ def filter_baseline_interactively(
 def integrate_peaks_interactively(
     measurements: Dict[str, Measurement],
     samples: int,
-    integration_method: str = 'simpson',
+    integration_method: str = 'trapz',
 ) -> go.Figure:
     ''' Generates a subplot given the dictionary of measurements
 
@@ -557,7 +599,8 @@ def output_data(
         for name in ["start", "end", "area", "peak_time", "peak_value"]:
             header.append(f"sample{i+1}_{name}")
 
-    with open(os.path.join(os.getcwd(), 'Output_301_b.csv'), 'w') as csvfile:
+    with open(os.path.join(output_dir,
+                           constants.FILENAME_SUMMARY_DATA), 'w') as csvfile:
         outputwriter = csv.writer(csvfile, delimiter=',')
         outputwriter.writerow(header)
         for name, measurement in measurements.items():

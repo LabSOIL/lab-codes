@@ -1999,6 +1999,25 @@ files = [
 tests = ["pytest"]
 
 [[package]]
+name = "pybaselines"
+version = "1.0.0"
+description = "A library of algorithms for the baseline correction of experimental data."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "pybaselines-1.0.0-py3-none-any.whl", hash = "sha256:c359c8fee8bea2f4a78ec61afb41c0c43e0a78d02e5609169008549658ec1217"},
+    {file = "pybaselines-1.0.0.tar.gz", hash = "sha256:48373c98c3d413d88b177c7a5c99c04889c2928b658cfd9b990c3aafcbe1d5d2"},
+]
+
+[package.dependencies]
+numpy = ">=1.14"
+scipy = ">=1.0"
+
+[package.extras]
+full = ["numba (>=0.45)", "pentapy (>=1.0)"]
+
+[[package]]
 name = "pycparser"
 version = "2.21"
 description = "C parser in Python"
@@ -2788,4 +2807,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f310159b48b7ba327d62c08fee0007bba12f81bf217d5dcfbd0ea3b16f2a2bb5"
+content-hash = "4a2bdb37c2fc1de455adae839da93e045a3c393e6ae7ba50c9d4666418b32cbf"
