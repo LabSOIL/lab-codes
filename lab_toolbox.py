@@ -586,21 +586,31 @@ def output_data(
     # Save baseline filtered data
     df = pd.DataFrame.from_dict(baseline_data)
     df.set_index('Time/s', inplace=True, drop=True)
-    df.to_csv(os.path.join(output_dir,
-                           constants.FILENAME_BASELINE_SUBTRACTED_DATA))
+    baseline_filename = os.path.join(
+        output_dir, constants.FILENAME_BASELINE_SUBTRACTED_DATA
+    )
+    df.to_csv(baseline_filename)
+    print(f"Saved baseline subtracted data to {baseline_filename}")
+
     # Do the same for the raw data
     df = pd.DataFrame.from_dict(baseline_data)
     df.set_index('Time/s', inplace=True, drop=True)
-    df.to_csv(os.path.join(output_dir,
-                           constants.FILENAME_RAW_DATA))
+    rawdata_filename = os.path.join(
+        output_dir, constants.FILENAME_RAW_DATA
+    )
+    df.to_csv(rawdata_filename)
+    print(f"Saved raw data to {rawdata_filename}")
 
     header = ['measurement']
     for i in range(sample_count):
         for name in ["start", "end", "area", "peak_time", "peak_value"]:
             header.append(f"sample{i+1}_{name}")
 
-    with open(os.path.join(output_dir,
-                           constants.FILENAME_SUMMARY_DATA), 'w') as csvfile:
+    # Save summary data
+    summary_filename = os.path.join(
+        output_dir, constants.FILENAME_SUMMARY_DATA
+    )
+    with open(summary_filename, 'w') as csvfile:
         outputwriter = csv.writer(csvfile, delimiter=',')
         outputwriter.writerow(header)
         for name, measurement in measurements.items():
@@ -610,3 +620,4 @@ def output_data(
                 row += [sample['start'], sample['end'], sample['area'],
                         sample['peak_x'], sample['peak_y']]
             outputwriter.writerow(row)
+    print(f"Saved summary data to {summary_filename}")
