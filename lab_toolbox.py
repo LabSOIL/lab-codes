@@ -245,17 +245,8 @@ class Measurement:
                 np.where((self.x >= start) & (self.x <= end))
             ]
 
-            # Calculate the area
-            if integration_method == 'trapz':
-                area = np.trapz(y_values, x_values)
-            elif integration_method == 'simpson':
-                area = simpson(y_values, x_values)
-            else:
-                raise ValueError(
-                    f"Integration method '{integration_method}' not "
-                    "supported, use 'trapz' or 'simpson'"
-                )
-
+            # Calculate the integral
+            area = calculate_integral(y_values, x_values, integration_method)
             peak_x, peak_y = self.find_peak(start, end)
 
             self._integration_properties.append({
@@ -277,6 +268,26 @@ class Measurement:
             })
 
         return self._integration_properties
+
+
+def calculate_integral(
+    x: np.ndarray,
+    y: np.ndarray,
+    method: str = 'trapz'
+):
+    ''' Calculate the integral of the x and y values '''
+
+    if method == 'trapz':
+        area = np.trapz(y, x)
+    elif method == 'simpson':
+        area = simpson(y, x)
+    else:
+        raise ValueError(
+            f"Integration method '{method}' not "
+            "supported, use 'trapz' or 'simpson'"
+        )
+
+    return area
 
 
 def filter_baseline_interactively(
