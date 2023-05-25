@@ -5,7 +5,7 @@ during the processes in the SOIL lab.
 '''
 import numpy as np
 import pandas as pd
-from constants import constants
+from lab_toolbox.constants import constants
 import plotly.graph_objs as go
 from typing import Dict, Tuple, List, Any
 from plotly.subplots import make_subplots

@@ -8,7 +8,7 @@ import numpy as np
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), os.pardir))
 )
-import lab_toolbox
+from lab_toolbox import lab_toolbox
 
 
 def test_integration_by_x_points(

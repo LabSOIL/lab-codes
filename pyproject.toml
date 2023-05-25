@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "labsoil"
+name = "lab_toolbox"
 version = "0.1.0"
-description = ""
+description = "A set of tools to assist with laboratory processes in labSOIL"
 authors = ["Evan Thomas <evan.thomas@epfl.ch>"]
 readme = "README.md"
-packages = [{include = "labsoil"}]
+packages = [{include = "lab_toolbox"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
