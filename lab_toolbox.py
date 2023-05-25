@@ -246,7 +246,8 @@ class Measurement:
             ]
 
             # Calculate the integral
-            area = calculate_integral(y_values, x_values, integration_method)
+            area = calculate_integral(y=y_values, x=x_values,
+                                      method=integration_method)
             peak_x, peak_y = self.find_peak(start, end)
 
             self._integration_properties.append({
@@ -271,8 +272,8 @@ class Measurement:
 
 
 def calculate_integral(
-    x: np.ndarray,
     y: np.ndarray,
+    x: np.ndarray,
     method: str = 'trapz'
 ):
     ''' Calculate the integral of the x and y values '''
