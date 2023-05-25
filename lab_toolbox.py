@@ -13,6 +13,7 @@ from scipy.integrate import simpson
 import os
 import csv
 import pybaselines
+from scipy.constants import physical_constants
 
 
 class Measurement:
@@ -28,7 +29,6 @@ class Measurement:
 
         self._integral_selected_points = []
         self._integration_properties = []
-
 
     def add_baseline_point(self, x_coord):
         self._baseline_selected_points.append(x_coord)
@@ -195,7 +195,7 @@ class Measurement:
 
         return peak_x, peak_y
 
-    def calculate_integrals(
+    def _calculate_integrals(
         self,
         samples,
         integration_method: str = 'simpson',
@@ -246,8 +246,10 @@ class Measurement:
             ]
 
             # Calculate the integral
-            area = calculate_integral(y=y_values, x=x_values,
-                                      method=integration_method)
+            area = integrate_coulomb_as_mole(
+                y=y_values, x=x_values, method=integration_method
+            )
+
             peak_x, peak_y = self.find_peak(start, end)
 
             self._integration_properties.append({
@@ -271,12 +273,30 @@ class Measurement:
         return self._integration_properties
 
 
-def calculate_integral(
+def integrate_coulomb_as_mole(
     y: np.ndarray,
     x: np.ndarray,
     method: str = 'trapz'
-):
-    ''' Calculate the integral of the x and y values '''
+) -> float:
+    ''' Calculate the integral of the x and y values and convert to moles
+
+    The Faraday constant is used to convert the integral to moles.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        The y values as electrical current to integrate
+    x : np.ndarray
+        The x values to integrate
+    method : str, optional
+        The method to use when calculating the integral, by default
+        'trapz', to use the Simpson's rule use 'simpson'
+
+    Returns
+    -------
+    float
+        The integral of the x and y values converted to moles
+    '''
 
     if method == 'trapz':
         area = np.trapz(y, x)
@@ -287,6 +307,9 @@ def calculate_integral(
             f"Integration method '{method}' not "
             "supported, use 'trapz' or 'simpson'"
         )
+
+    # Convert coulombs to moles using Faraday constant
+    area /= physical_constants["Faraday constant"][0]
 
     return area
 
@@ -494,7 +517,7 @@ def integrate_peaks_interactively(
                         point_color[j] = '#2F4F4F'
                         point_size[j] = 20
                         measurement.add_integral_point(clicked_point)
-                        measurement.calculate_integrals(
+                        measurement._calculate_integrals(
                             samples, integration_method
                         )
 
