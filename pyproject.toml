@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "lab-codes"
+name = "labsoil"
 version = "0.1.0"
 description = ""
 authors = ["Evan Thomas <evan.thomas@epfl.ch>"]
 readme = "README.md"
-packages = [{include = "lab_codes"}]
+packages = [{include = "labsoil"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
