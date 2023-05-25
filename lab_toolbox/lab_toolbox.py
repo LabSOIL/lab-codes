@@ -656,3 +656,22 @@ def output_data(
                         sample['peak_x'], sample['peak_y']]
             outputwriter.writerow(row)
     print(f"Saved summary data to {summary_filename}")
+
+
+def import_data(
+    filename_path: str,
+    header_start: int
+) -> Dict[str, Measurement]:
+
+    # Import data
+    df = pd.read_csv(filename_path, header=header_start)
+    df.set_index('Time/s', inplace=True)  # Set index to the time column
+    df.columns = df.columns.str.strip()  # Strip whitespace from the columns
+
+    # Create a structure to hold all of the measurements (i1/A, i2/A, ...)
+    measurements = {}
+    for col in df.columns:
+        x = Measurement(col, df[col])
+        measurements[x.name] = x
+
+    return measurements
