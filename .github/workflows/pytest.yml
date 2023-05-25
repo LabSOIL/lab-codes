@@ -2,8 +2,11 @@ name: Poetry Dev Environment
 
 on:
   push:
-    branches-ignore:
-      - '*'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   test:
