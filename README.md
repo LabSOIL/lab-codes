@@ -75,3 +75,13 @@ commit to this repository.
 
 6. Finally, execute the last cell and the data, and plots will be saved to
     the `output` folder.
+
+
+
+# To run tests
+
+To run the test suite, from the root directory, execute:
+
+```bash
+poetry run pytest
+```
