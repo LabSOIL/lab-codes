@@ -15,4 +15,5 @@ class Constants(BaseSettings):
 
     FILE_HEADER: str = 'Time/s, i1/A, i2/A, i3/A, i4/A, i5/A, i6/A, i7/A, i8/A'
 
+
 constants = Constants()

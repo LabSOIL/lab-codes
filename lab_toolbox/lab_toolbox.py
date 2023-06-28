@@ -456,10 +456,20 @@ def filter_baseline_interactively(
         # Change colours of selected points (only on the raw data)
         if 'spline' not in subfig.name:
             # Define the colour and size of points on first load
-            subfig.marker.color = ([constants.DEFAULT_POINT_COLOUR]
-                                   * len(subfig.y))
-            subfig.marker.size = ([constants.DEFAULT_POINT_SIZE]
-                                  * len(subfig.y))
+            # Set the start and end points to be selected. It would be better
+            # to do this in the loop above, or actuate the callback on load,
+            # however the start and end are always considered in the spline.
+            marker_colour_list = [constants.DEFAULT_POINT_COLOUR] * len(
+                subfig.y
+            )
+            marker_colour_list[0] = constants.SELECTED_POINT_COLOUR
+            marker_colour_list[-1] = constants.SELECTED_POINT_COLOUR
+            subfig.marker.color = marker_colour_list
+
+            marker_size_list = [constants.DEFAULT_POINT_SIZE] * len(subfig.y)
+            marker_size_list[0] = constants.SELECTED_POINT_SIZE
+            marker_size_list[-1] = constants.SELECTED_POINT_SIZE
+            subfig.marker.size = marker_size_list
 
             # Change scatter marker border colour/width (to make it visible)
             subfig.marker.line.color = 'DarkSlateGrey'
@@ -483,6 +493,12 @@ def integrate_peaks_interactively(
 
     Allows user to select start and end of peaks to integrate
     '''
+
+    # Insure the integration data arrays are empty before starting otherwise
+    # the plots interaction logic will break with the old data
+    for measurement in measurements.values():
+        measurement._integral_selected_points = []
+        measurement._integration_properties = []
 
     def cb_update_integral_filter_plot(trace, points, selector):
         # Must iterate through each plot in the subplot as everytime on_click
