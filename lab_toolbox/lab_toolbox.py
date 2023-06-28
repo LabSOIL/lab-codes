@@ -465,7 +465,6 @@ def filter_baseline_interactively(
             subfig.marker.line.color = 'DarkSlateGrey'
             subfig.marker.line.width = 0
 
-
     # Format and show fig
     fig.update_layout(
         height=2000, width=900,
@@ -658,10 +657,72 @@ def output_data(
     print(f"Saved summary data to {summary_filename}")
 
 
+def find_header_start(
+    filename_path: str,
+    header_text: str = constants.FILE_HEADER
+) -> int:
+    ''' Find the start of the header in the file
+
+    Iterates through the file until it finds the header start. The header is
+    defined as a constant in the constants module.
+
+    Parameters
+    ----------
+    filename_path : str
+        The path to the file to find the header start of
+    header_text : str
+        The text to find in the file to indicate the start of the header
+
+    Returns
+    -------
+    int
+        The line number of the header start
+    '''
+
+    qty_empty_rows = 0
+
+    with open(filename_path, 'r') as f:
+        for i, line in enumerate(f):
+            if line.strip() == header_text:
+                return i - qty_empty_rows
+            elif len(line.strip()) == 0:
+                ''' Pandas does not count empty rows as part of the header '''
+                qty_empty_rows += 1
+
+    raise ValueError('Could not find header start')
+
+
 def import_data(
     filename_path: str,
-    header_start: int
+    header_start: int | None = None
 ) -> Dict[str, Measurement]:
+    ''' Import data from a file
+
+    The header start variable is given to pandas, which is the value of the
+    line number of the header start. If this is not given, the function will
+    attempt to find the header start. If this is given manually it is important
+    to not include empty lines in this count.
+
+    For example, if the header starts on line 5 (starting at 0), but there are
+    2 empty lines before the header, the header start should be 3.
+
+
+    Parameters
+    ----------
+    filename_path : str
+        The path to the file to import
+    header_start : int, optional
+        The line number of the header start, by default None
+
+    Returns
+    -------
+    Dict[str, Measurement]
+        A dictionary of measurements
+    '''
+
+    # Find the header start
+    if header_start is None:
+        header_start = find_header_start(filename_path)
 
     # Import data
     df = pd.read_csv(filename_path, header=header_start)
