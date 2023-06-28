@@ -14,6 +14,7 @@ import os
 import csv
 import pybaselines
 from scipy.constants import physical_constants
+import datetime
 
 
 class Measurement:
@@ -611,10 +612,18 @@ def integrate_peaks_interactively(
 def output_data(
     measurements: Dict[str, Measurement],
     sample_count: int,
-    output_dir: str,
+    output_dir: str | None = None,
 ) -> None:
-    # Create output dir
-    output_dir = os.path.join(os.getcwd(), output_dir)
+    # Create output dir based on UTC time, with absolute path
+    if output_dir is None:
+        output_dir = os.path.join(
+            os.getcwd(), f'output-{datetime.datetime.utcnow()}'
+        )
+    else:
+        # Add absolute path to output dir
+        output_dir = os.path.join(os.getcwd(), output_dir)
+
+    # Create folder if it doesn't exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
