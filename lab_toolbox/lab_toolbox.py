@@ -14,6 +14,7 @@ import os
 import csv
 import pybaselines
 from scipy.constants import physical_constants
+import datetime
 
 
 class Measurement:
@@ -456,15 +457,24 @@ def filter_baseline_interactively(
         # Change colours of selected points (only on the raw data)
         if 'spline' not in subfig.name:
             # Define the colour and size of points on first load
-            subfig.marker.color = ([constants.DEFAULT_POINT_COLOUR]
-                                   * len(subfig.y))
-            subfig.marker.size = ([constants.DEFAULT_POINT_SIZE]
-                                  * len(subfig.y))
+            # Set the start and end points to be selected. It would be better
+            # to do this in the loop above, or actuate the callback on load,
+            # however the start and end are always considered in the spline.
+            marker_colour_list = [constants.DEFAULT_POINT_COLOUR] * len(
+                subfig.y
+            )
+            marker_colour_list[0] = constants.SELECTED_POINT_COLOUR
+            marker_colour_list[-1] = constants.SELECTED_POINT_COLOUR
+            subfig.marker.color = marker_colour_list
+
+            marker_size_list = [constants.DEFAULT_POINT_SIZE] * len(subfig.y)
+            marker_size_list[0] = constants.SELECTED_POINT_SIZE
+            marker_size_list[-1] = constants.SELECTED_POINT_SIZE
+            subfig.marker.size = marker_size_list
 
             # Change scatter marker border colour/width (to make it visible)
             subfig.marker.line.color = 'DarkSlateGrey'
             subfig.marker.line.width = 0
-
 
     # Format and show fig
     fig.update_layout(
@@ -484,6 +494,12 @@ def integrate_peaks_interactively(
 
     Allows user to select start and end of peaks to integrate
     '''
+
+    # Insure the integration data arrays are empty before starting otherwise
+    # the plots interaction logic will break with the old data
+    for measurement in measurements.values():
+        measurement._integral_selected_points = []
+        measurement._integration_properties = []
 
     def cb_update_integral_filter_plot(trace, points, selector):
         # Must iterate through each plot in the subplot as everytime on_click
@@ -596,10 +612,18 @@ def integrate_peaks_interactively(
 def output_data(
     measurements: Dict[str, Measurement],
     sample_count: int,
-    output_dir: str,
+    output_dir: str | None = None,
 ) -> None:
-    # Create output dir
-    output_dir = os.path.join(os.getcwd(), output_dir)
+    # Create output dir based on UTC time, with absolute path
+    if output_dir is None:
+        output_dir = os.path.join(
+            os.getcwd(), f'output-{datetime.datetime.utcnow()}'
+        )
+    else:
+        # Add absolute path to output dir
+        output_dir = os.path.join(os.getcwd(), output_dir)
+
+    # Create folder if it doesn't exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -658,10 +682,72 @@ def output_data(
     print(f"Saved summary data to {summary_filename}")
 
 
+def find_header_start(
+    filename_path: str,
+    header_text: str = constants.FILE_HEADER
+) -> int:
+    ''' Find the start of the header in the file
+
+    Iterates through the file until it finds the header start. The header is
+    defined as a constant in the constants module.
+
+    Parameters
+    ----------
+    filename_path : str
+        The path to the file to find the header start of
+    header_text : str
+        The text to find in the file to indicate the start of the header
+
+    Returns
+    -------
+    int
+        The line number of the header start
+    '''
+
+    qty_empty_rows = 0
+
+    with open(filename_path, 'r') as f:
+        for i, line in enumerate(f):
+            if line.strip() == header_text:
+                return i - qty_empty_rows
+            elif len(line.strip()) == 0:
+                ''' Pandas does not count empty rows as part of the header '''
+                qty_empty_rows += 1
+
+    raise ValueError('Could not find header start')
+
+
 def import_data(
     filename_path: str,
-    header_start: int
+    header_start: int | None = None
 ) -> Dict[str, Measurement]:
+    ''' Import data from a file
+
+    The header start variable is given to pandas, which is the value of the
+    line number of the header start. If this is not given, the function will
+    attempt to find the header start. If this is given manually it is important
+    to not include empty lines in this count.
+
+    For example, if the header starts on line 5 (starting at 0), but there are
+    2 empty lines before the header, the header start should be 3.
+
+
+    Parameters
+    ----------
+    filename_path : str
+        The path to the file to import
+    header_start : int, optional
+        The line number of the header start, by default None
+
+    Returns
+    -------
+    Dict[str, Measurement]
+        A dictionary of measurements
+    '''
+
+    # Find the header start
+    if header_start is None:
+        header_start = find_header_start(filename_path)
 
     # Import data
     df = pd.read_csv(filename_path, header=header_start)

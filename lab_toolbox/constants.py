@@ -13,5 +13,7 @@ class Constants(BaseSettings):
     FILENAME_BASELINE_SUBTRACTED_DATA: str = 'bs_301_b.csv'
     FILENAME_SUMMARY_DATA: str = 'Output_301_b.csv'
 
+    FILE_HEADER: str = 'Time/s, i1/A, i2/A, i3/A, i4/A, i5/A, i6/A, i7/A, i8/A'
+
 
 constants = Constants()
