@@ -383,7 +383,7 @@ def filter_baseline_interactively(
                                 splineplot.y = measurement.filtered_baseline
 
     # Add the subplots for each column
-    rows = 9
+    rows = len(measurements.keys()) + 1  # Extra for the summary plot
     cols = 1
     plot_titles = list(measurements.keys()) + ["All measurements"]
     fig = go.FigureWidget(
@@ -448,7 +448,7 @@ def filter_baseline_interactively(
                 y=props.filtered_baseline,
                 name=f"filtered_{name}",
             ),
-            row=9,
+            row=len(measurements) + 1,
             col=1,
         )
 
@@ -560,7 +560,7 @@ def integrate_peaks_interactively(
                         subplot.marker.size = point_size
 
     # Add the subplots for each column
-    rows = 8
+    rows = len(measurements)
     cols = 1
     plot_titles = list(measurements.keys()) + ["All measurements"]
     fig = go.FigureWidget(
@@ -716,7 +716,7 @@ def find_header_start(
 
     with open(filename_path, "r") as f:
         for i, line in enumerate(f):
-            if line.strip() == header_text:
+            if header_text in line.strip():
                 return i - qty_empty_rows
             elif len(line.strip()) == 0:
                 """Pandas does not count empty rows as part of the header"""
