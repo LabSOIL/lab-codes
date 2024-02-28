@@ -547,12 +547,12 @@ def integrate_peaks_interactively(
                         val = np.where(subplot.x == point)[0]
                         if val and len(val) and not np.isnan(val):
                             peak_index = val.item()
-                            point_color[
-                                peak_index
-                            ] = constants.INTEGRAL_PEAK_COLOUR
-                            point_size[
-                                peak_index
-                            ] = constants.INTEGRAL_PEAK_SIZE
+                            point_color[peak_index] = (
+                                constants.INTEGRAL_PEAK_COLOUR
+                            )
+                            point_size[peak_index] = (
+                                constants.INTEGRAL_PEAK_SIZE
+                            )
 
                     with fig.batch_update():
                         # Update the color and size of un/clicked point
@@ -726,7 +726,11 @@ def find_header_start(
 
 
 def import_data(
-    filename_path: str, header_start: int | None = None
+    filename_path: str,
+    header_start: int | None = None,
+    index_column: str = "Time/s",
+    delimiter: str = ",",
+    encoding: str = "utf-8",
 ) -> Dict[str, Measurement]:
     """Import data from a file
 
@@ -757,8 +761,13 @@ def import_data(
         header_start = find_header_start(filename_path)
 
     # Import data
-    df = pd.read_csv(filename_path, header=header_start)
-    df.set_index("Time/s", inplace=True)  # Set index to the time column
+    df = pd.read_csv(
+        filename_path,
+        header=header_start,
+        delimiter=delimiter,
+        encoding=encoding,
+    )
+    df.set_index(index_column, inplace=True)  # Set index to the time column
     df.columns = df.columns.str.strip()  # Strip whitespace from the columns
 
     # Create a structure to hold all of the measurements (i1/A, i2/A, ...)
